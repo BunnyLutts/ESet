@@ -3,6 +3,7 @@
 #define ESET_H
 
 #include <functional>
+#include <iostream>
 
 namespace sjtu {
     template <class Key, class Compare = std::less<Key> >
@@ -69,16 +70,21 @@ namespace sjtu {
         }
 
         void rotate(Node *x) {
-            if (!x->fa) return;
+            if (x==root) return;
             Node *y = x->fa, *z = y->fa;
             int t=dir(x);
-            if (z) z->link(dir(y), x);
+            if (y!=root) z->link(dir(y), x);
             else root = x;
             y->link(t, x->s[t^1]);
             x->link(t^1, y);
 
             update(y);
             update(x);
+
+            #ifdef DEBUG
+            // std::cerr << "Rotate " << x->key << " " << y->key << std::endl;
+            // debug_print(root, 1);
+            #endif
         }
 
         Node* findNext(Node *x) {
@@ -114,12 +120,13 @@ namespace sjtu {
         void maintainEmplace(Node *x) {
             for (;;) {
                 // Case 2: x->fa is root or black
-                if (!x->fa || root == x->fa || x->fa->black) return;
+                if (x==root || root == x->fa || x->fa->black) return;
                 // Case 3: x->fa->bro is red
                 Node *unc = bro(x->fa);
                 if (!unc->black) {
                     x->fa->black = unc->black = true;
                     x = x->fa->fa;
+                    x->black = false;
                 } else {
                     // Case 4: dir(x->fa) != dir(x)
                     if (dir(x->fa) != dir(x)) {
@@ -148,7 +155,7 @@ namespace sjtu {
                     continue;
                 }
                 // Case 2: bro and its children are both black and the parent is red
-                if (b->black && b->s[0]->black && b->s[1]->black) {
+                if (b->black && b->s[0]->black && b->s[1]->black && !x->fa->black) {
                     x->fa->black = true;
                     b->black = false;
                     return;
@@ -181,6 +188,13 @@ namespace sjtu {
         void updateToRoot(Node *x) {
             for (; x!=root; x = x->fa) update(x);
             update(root);
+        }
+
+        void debug_print(Node *ptr, int x) {
+            if (ptr==nil) return;
+            std::cerr << x << ": " << (ptr->black? "black" : "red") << ", size: " << ptr->size << ", key: " << *ptr->key << "\n";
+            debug_print(ptr->s[0], x*2);
+            debug_print(ptr->s[1], x*2+1);
         }
 
     public:
@@ -293,14 +307,21 @@ namespace sjtu {
                 return std::make_pair(iterator(root, this), true);
             }
 
-            Node *p;
+            Node *p, *np;
             int flag;
             std::tie(p, flag) = findEmplacePos(root, tar);
             if (flag<0) return std::make_pair(iterator(p, this), false);
-            p->link(flag, newLeaf(std::move(tar)));
+            p->link(flag, np = newLeaf(std::move(tar)));
 
-            maintainEmplace(p);
-            return std::make_pair(iterator(p->s[flag], this), true);
+            updateToRoot(np);
+            maintainEmplace(np);
+
+            #ifdef DEBUG
+            std::cerr << "After emplace: \n";
+            debug_print(root, 1);
+            #endif
+
+            return std::make_pair(iterator(np, this), true);
         }
 
         size_t erase(const Key &key) {
@@ -328,6 +349,10 @@ namespace sjtu {
                     updateToRoot(x->fa);
                 }
                 delete x;
+                #ifdef DEBUG
+                std::cerr << "After erase: \n";
+                debug_print(root, 1);
+                #endif
                 return 1;
             }
 
@@ -336,6 +361,10 @@ namespace sjtu {
             if (x == root) {
                 root = nil;
                 delete x;
+                #ifdef DEBUG
+                std::cerr << "After erase: \n";
+                debug_print(root, 1);
+                #endif
                 return 1;
             }
             // Case B.1: x is red
@@ -343,13 +372,22 @@ namespace sjtu {
                 x->fa->link(dir(x), nil);
                 updateToRoot(x->fa);
                 delete x;
+                #ifdef DEBUG
+                std::cerr << "After erase: \n";
+                debug_print(root, 1);
+                #endif
                 return 1;
             }
             // Case B.2: x is black
             if (x->black) {
                 maintainErase(x);
                 x->fa->link(dir(x), nil);
+                updateToRoot(x->fa);
                 delete x;
+                #ifdef DEBUG
+                std::cerr << "After erase: \n";
+                debug_print(root, 1);
+                #endif
                 return 1;
             }
 
@@ -387,12 +425,21 @@ namespace sjtu {
 
         size_t range(const Key &l, const Key &r) {
             if (cmp(r, l)) return 0;
-            Node *pl = lower_bound(l).ptr, *pr = upper_bound(r).ptr;
-            if (pr == nil) {
-                if (pl == nil) return 0;
-                else return size()-pl->size+1;
+            size_t sizel = 0, sizer = 0;
+            Node *p;
+            for (p = root; p!=nil; ) {
+                if (cmp(*p->key, l)) {
+                    sizel += p->s[0]->size+1;
+                    p = p->s[1];
+                } else p = p->s[0];
             }
-            return pr->size-pl->size;
+            for (p = root; p!=nil; ) {
+                if (!cmp(r, *p->key)) {
+                    sizer += p->s[0]->size+1;
+                    p = p->s[1];
+                } else p = p->s[0];
+            }
+            return sizer - sizel;
         }
 
         size_t size() const noexcept {
