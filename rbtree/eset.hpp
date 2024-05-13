@@ -2,9 +2,9 @@
 
 #define ESET_H
 
-#include <functional>
+// #include <functional>
 // #include <exception>
-// #include <stdexcept>
+#include <stdexcept>
 #ifdef DEBUG
 #include <iostream>
 #endif
@@ -18,8 +18,8 @@ private:
         size_t size;
         bool black;
 
-        //Initially red
-        Node() : s{nullptr, nullptr}, fa{nullptr}, key{nullptr}, size{0}, black{false} {}
+        //Initially black
+        Node() : s{nullptr, nullptr}, fa{nullptr}, key{nullptr}, size{0}, black{true} {}
 
         ~Node() {
             if (key) delete key;
@@ -141,14 +141,18 @@ private:
         for (; x->s[1]!=nil; x=x->s[1]);
         return x;
     }
-
-
     std::pair<Node*, int> findEmplacePos(Node *x, const Key &key) const {
         if (cmp(key, *x->key)) {
             return x->s[0]==nil ? std::make_pair(x, 0) : findEmplacePos(x->s[0], key);
         } else if (cmp(*x->key, key)) {
             return x->s[1]==nil ? std::make_pair(x, 1) : findEmplacePos(x->s[1], key);
         } else return std::make_pair(x, -1);
+    }
+
+    const Node* findLast() const {
+        Node *x = root;
+        for (; x!=nil && x->s[1]!=nil; x=x->s[1]);
+        return x;
     }
 
     void maintainEmplace(Node *x) {
@@ -245,57 +249,78 @@ private:
         return nil;
     }
 
+    const Node* nfind(const Key &key) const {
+        Node *p = root;
+        for (; p!=nil; ) {
+            if (cmp(key, *p->key)) {
+                p = p->s[0];
+            } else if (cmp(*p->key, key)) {
+                p = p->s[1];
+            } else return p;
+        }
+        return nil;
+    }
+
 public:
 
     class iterator {
         friend class ESet<Key, Compare>;
     private:
         const ESet *from;
-        const Node *ptr;
+        const Key *key;
 
-        iterator(const Node *ptr, const ESet *from) : ptr{ptr}, from{from} {}
+        iterator(const Node *ptr, const ESet *from) : key{ptr->key}, from{from} {}
+        iterator(const Key *key, const ESet *from) : key{key}, from{from} {}
+
+        const Node* find() {
+            return key ? from->nfind(*key) : from->nil;
+        }
 
     public:
-        iterator() : ptr{nullptr}, from{nullptr} {}
+        iterator() : key{nullptr}, from{nullptr} {}
 
         const Key& operator*() const { 
-            if (!ptr->key) throw "Out of range";
-            return *ptr->key; 
+            if (!key) throw std::out_of_range("Out of range");
+            return *key; 
         }
 
         const Key* operator->() const { 
-            if (!ptr->key) throw "Out of range";
-            return ptr->key; 
+            if (!key) throw std::out_of_range("Out of range");
+            return key; 
         }
         
         iterator operator++(int) {
             iterator tmp = *this;
-            ptr = from->findNext(ptr);
+            const Node *ptr = find();
+            key = from->findNext(ptr)->key;
             return tmp;
         }
 
         iterator operator--(int) {
             iterator tmp = *this;
-            ptr = from->findPrev(ptr);
+            const Node *ptr = find();
+            key = ptr == from->nil ? from->findLast()->key : from->findPrev(ptr)->key;
             return tmp;
         }
 
         iterator& operator++() {
-            ptr = from->findNext(ptr);
+            const Node *ptr = find();
+            key = from->findNext(ptr)->key;
             return *this;
         }
 
         iterator& operator--() {
-            ptr = from->findPrev(ptr);
+            const Node *ptr = find();
+            key = ptr == from->nil ? from->findLast()->key : from->findPrev(ptr)->key;
             return *this;
         }
 
         bool operator==(const iterator &other) const {
-            return ptr == other.ptr;
+            return from == other.from && key == other.key;
         }
 
         bool operator!=(const iterator &other) const {
-            return ptr!= other.ptr;
+            return from != other.from || key != other.key;
         }
     };
 
@@ -328,7 +353,7 @@ public:
 
     ~ESet() {
         clear();
-        delete nil;
+        if (nil != nullptr) delete nil;
     }
 
     ESet(const ESet &other) : root{nullptr}, nil(new Node) {
@@ -343,12 +368,13 @@ public:
     }
 
     ESet(ESet &&other) noexcept : root{std::move(other.root)}, nil{std::move(other.nil)} {
-        other.root = other.nil = nullptr;
+        other.root = other.nil = new Node;
     }
     
     ESet& operator=(ESet &&other) noexcept {
         if (&other == this) return *this;
         clear();
+        if (nil) delete nil;
         root = std::move(other.root);
         nil = std::move(other.nil);
         other.root = other.nil = nullptr;
@@ -366,7 +392,9 @@ public:
 
         Node *p, *np;
         int flag;
-        std::tie(p, flag) = findEmplacePos(root, tar);
+        auto temp = findEmplacePos(root, tar);
+        p = temp.first;
+        flag = temp.second;
         if (flag<0) return std::make_pair(iterator(p, this), false);
         p->link(flag, np = newLeaf(std::move(tar)));
 
@@ -465,7 +493,7 @@ public:
     }
 
     void clear() noexcept {
-        recollect(root);
+        if (root!=nullptr && root!=nil) recollect(root);
     }
 
     size_t range(const Key &l, const Key &r) const {
@@ -492,27 +520,29 @@ public:
     }
 
     iterator lower_bound(const Key &key) const {
-        Node *p = root;
+        Node *p = root, *ret = nil;
         for (; p!=nil; ) {
             if (p->s[0]!=nil && !cmp(*p->s[0]->key, key)) {
                 p = p->s[0];
             } else if (!cmp(*p->key, key)) {
-                return iterator(p, this);
+                ret = p;
+                p = p->s[0];
             } else p = p->s[1];
         }
-        return end();
+        return iterator(ret, this);
     }
 
     iterator upper_bound(const Key &key) const {
-        Node *p = root;
+        Node *p = root, *ret=nil;
         for (; p!=nil; ) {
             if (p->s[0]!=nil && cmp(key, *p->s[0]->key)) {
                 p = p->s[0];
             } else if (cmp(key, *p->key)) {
-                return iterator(p, this);
+                ret = p;
+                p = p->s[0];
             } else p = p->s[1];
         }
-        return end();
+        return iterator(ret, this);
     }
 
     iterator begin() const noexcept {
