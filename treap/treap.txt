@@ -1,0 +1,9 @@
+test1
+Emplace: 120.423
+Erase: 117.086
+Size: 88031
+Copy: 0.002
+Count: 176375
+Find: 55.737
+Sum: 105682200
+Enumeration: 9.09

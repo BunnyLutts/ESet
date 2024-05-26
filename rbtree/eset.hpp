@@ -401,10 +401,10 @@ public:
         updateToRoot(np);
         maintainEmplace(np);
 
-        #ifdef DEBUG
-        std::cerr << "After emplace: \n";
-        debug_print(root, 1);
-        #endif
+        // #ifdef DEBUG
+        // std::cerr << "After emplace: \n";
+        // debug_print(root, 1);
+        // #endif
 
         return std::make_pair(iterator(np, this), true);
     }
@@ -434,10 +434,6 @@ public:
                 updateToRoot(x->fa);
             }
             delete x;
-            #ifdef DEBUG
-            std::cerr << "After erase: \n";
-            debug_print(root, 1);
-            #endif
             return 1;
         }
 
@@ -446,10 +442,6 @@ public:
         if (x == root) {
             root = nil;
             delete x;
-            #ifdef DEBUG
-            std::cerr << "After erase: \n";
-            debug_print(root, 1);
-            #endif
             return 1;
         }
         // Case B.1: x is red
@@ -457,10 +449,6 @@ public:
             x->fa->link(dir(x), nil);
             updateToRoot(x->fa);
             delete x;
-            #ifdef DEBUG
-            std::cerr << "After erase: \n";
-            debug_print(root, 1);
-            #endif
             return 1;
         }
         // Case B.2: x is black
@@ -469,10 +457,6 @@ public:
             x->fa->link(dir(x), nil);
             updateToRoot(x->fa);
             delete x;
-            #ifdef DEBUG
-            std::cerr << "After erase: \n";
-            debug_print(root, 1);
-            #endif
             return 1;
         }
 

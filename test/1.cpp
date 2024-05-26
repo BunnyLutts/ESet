@@ -1,8 +1,9 @@
-#include "src.hpp"
-#if defined (_UNORDERED_MAP_)  || (defined (_LIST_)) || (defined (_MAP_)) || (defined (_SET_)) || (defined (_UNORDERED_SET_))||(defined (_GLIBCXX_MAP)) || (defined (_GLIBCXX_UNORDERED_MAP))
-BOOM :)
-#endif
+#include "eset.hpp"
+// #if defined (_UNORDERED_MAP_)  || (defined (_LIST_)) || (defined (_MAP_)) || (defined (_SET_)) || (defined (_UNORDERED_SET_))||(defined (_GLIBCXX_MAP)) || (defined (_GLIBCXX_UNORDERED_MAP))
+// BOOM :)
+// #endif
 #include<iostream>
+#include <set>
 
 int main() {
     freopen("1.in", "r", stdin);
@@ -12,12 +13,17 @@ int main() {
 //    start = clock();
     ESet<long long> s[25];
     ESet<long long>::iterator it;
-    int op, lst=0, valid = 0,cnt=1;
+
+    // std::set<long long> s[25];
+    // std::set<long long>::iterator it;
+
+    int op, lst=0, valid = 0,cnt=1, mycnt=0;
     while (scanf("%d", &op) != EOF) {
         long long a, b, c;
 //        if(cnt==213){
 //            printf("!!!");
 //        }
+        mycnt++;
         switch (op) {
             case 0: {
                 scanf("%lld%lld", &a, &b);
@@ -52,6 +58,7 @@ int main() {
             case 4:
                 scanf("%lld%lld%lld", &a, &b, &c);
                 printf("%d\n", s[a].range(b, c));
+                // printf("%d\n", 0);
                 cnt++;
                 break;
             case 5:
